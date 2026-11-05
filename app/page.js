@@ -2,19 +2,27 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { pool } from "@/lib/db";
 import AddCourseForm from "./add-course-form";
+import CourseList from "./course-list";
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-slate-900 text-slate-100">
-      <div className="mx-auto max-w-6xl px-4 py-10">
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold">Course Catalog</h1>
-          <p className="text-slate-400">
-            Lattawit Sirisawat 6706989 · database <code>6706989_mydb</code>
-          </p>
-        </header>
+    <main className="min-h-screen bg-gradient-to-b from-[#150b28] to-[#0a0612] text-purple-50">
+      <header className="border-b border-purple-900/50 bg-[#0f081e]/80">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5">
+          <div>
+            <h1 className="bg-gradient-to-r from-purple-300 to-fuchsia-400 bg-clip-text text-2xl font-bold text-transparent">
+              Course Catalog
+            </h1>
+            <p className="text-sm text-purple-300/60">Lattawit Sirisawat · 6706989</p>
+          </div>
+          <code className="hidden rounded-full border border-purple-800/60 px-3 py-1 text-xs text-purple-300/70 sm:block">
+            6706989_mydb
+          </code>
+        </div>
+      </header>
 
-        <Suspense fallback={<p className="text-slate-400">Loading courses...</p>}>
+      <div className="mx-auto max-w-6xl px-4 py-8">
+        <Suspense fallback={<Skeleton />}>
           <Courses />
         </Suspense>
       </div>
@@ -25,42 +33,55 @@ export default function Home() {
 async function Courses() {
   await connection(); // รัน query ทุก request ไม่ใช่ตอน build
 
-  const [courses] = await pool.query(
-    `SELECT c.id, c.code, c.title, c.credits, c.semester, c.seats,
+  const [courseRows] = await pool.query(
+    `SELECT c.id, c.code, c.title, c.credits, c.semester, c.seats, c.instructorId,
             i.fullname AS instructor
      FROM courses c
      JOIN instructor i ON i.id = c.instructorId
      ORDER BY c.semester, c.code`
   );
-  const [instructors] = await pool.query(
+  const [instructorRows] = await pool.query(
     "SELECT id, fullname FROM instructor ORDER BY fullname"
   );
 
-  return (
-    <>
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {courses.map((c) => (
-          <div
-            key={c.id}
-            className="flex flex-col rounded-lg border-t-4 border-blue-600 bg-white p-5 text-slate-900 shadow transition hover:-translate-y-1 hover:shadow-xl"
-          >
-            <span className="mb-2 self-start rounded-full bg-blue-600 px-3 py-0.5 text-sm text-white">
-              {c.code}
-            </span>
-            <h2 className="mb-3 text-lg font-semibold">{c.title}</h2>
-            <div className="mb-4 flex flex-wrap gap-2 text-sm">
-              <span className="rounded bg-slate-100 px-2">{c.credits} credits</span>
-              <span className="rounded bg-slate-100 px-2">Sem {c.semester}</span>
-              <span className="rounded bg-slate-100 px-2">{c.seats} seats</span>
-            </div>
-            <div className="mt-auto border-t pt-2 text-sm text-slate-500">
-              👤 {c.instructor}
-            </div>
-          </div>
-        ))}
-      </div>
+  const courses = courseRows.map((c) => ({ ...c }));
+  const instructors = instructorRows.map((i) => ({ ...i }));
+  const totalCredits = courses.reduce((sum, c) => sum + c.credits, 0);
 
-      <AddCourseForm instructors={instructors} />
-    </>
+  return (
+    <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
+      <section className="space-y-8">
+        <div className="grid grid-cols-3 gap-3">
+          <Stat label="Courses" value={courses.length} />
+          <Stat label="Credits" value={totalCredits} />
+          <Stat label="Instructors" value={instructors.length} />
+        </div>
+
+        <CourseList courses={courses} instructors={instructors} />
+      </section>
+
+      <aside className="lg:sticky lg:top-6 lg:self-start">
+        <AddCourseForm instructors={instructors} />
+      </aside>
+    </div>
+  );
+}
+
+function Stat({ label, value }) {
+  return (
+    <div className="rounded-lg border border-purple-900/60 bg-[#1a1030] p-4">
+      <p className="text-2xl font-bold text-purple-200">{value}</p>
+      <p className="text-xs uppercase tracking-wider text-purple-300/60">{label}</p>
+    </div>
+  );
+}
+
+function Skeleton() {
+  return (
+    <div className="space-y-3">
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} className="h-16 animate-pulse rounded-lg bg-purple-900/30" />
+      ))}
+    </div>
   );
 }
